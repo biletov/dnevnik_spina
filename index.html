@@ -80,6 +80,36 @@
   .history-item:last-child{border-bottom:none}
   .history-item .dot{width:12px;height:12px;border-radius:50%;display:inline-block;
     margin-right:8px;vertical-align:middle}
+
+  /* Дельта недель */
+#delta-card{transition:background .2s}
+.delta-row{display:flex;justify-content:space-between;align-items:baseline;
+  padding:8px 0;border-bottom:1px solid #f0f0f0}
+.delta-row:last-of-type{border-bottom:none}
+.delta-row .now{font-weight:700;font-size:16px}
+.delta-row .diff{font-weight:700;font-size:15px;margin-left:8px}
+.diff.good{color:#16a34a}
+.diff.bad{color:#dc2626}
+.diff.neutral{color:#6b7280}
+.delta-verdict{margin-top:10px;padding:10px 12px;border-radius:10px;
+  font-weight:600;text-align:center;font-size:15px}
+.delta-verdict.better{background:#dcfce7;color:#166534}
+.delta-verdict.worse{background:#fee2e2;color:#991b1b}
+.delta-verdict.same{background:#f3f4f6;color:#374151}
+.delta-verdict.empty{background:#f3f4f6;color:#6b7280;font-weight:400}
+
+/* График */
+.chart-legend{display:flex;gap:14px;font-size:12px;color:#6b7280;margin-top:8px}
+.chart-legend i{display:inline-block;width:10px;height:10px;border-radius:2px;
+  margin-right:4px;vertical-align:middle}
+
+/* Мини-календарь */
+.mini-cal{display:grid;grid-template-columns:repeat(14,1fr);gap:4px}
+.mini-cal .cell{aspect-ratio:1;border-radius:4px}
+.mini-cal-legend{display:flex;gap:12px;font-size:11px;color:#6b7280;
+  margin-top:10px;flex-wrap:wrap}
+.mini-cal-legend i{display:inline-block;width:9px;height:9px;border-radius:2px;
+  margin-right:3px;vertical-align:middle}
 </style>
 </head>
 <body>
@@ -391,6 +421,204 @@ function renderHistory(){
   }).join('');
 }
 
+  /* ============ ХЕЛПЕРЫ ДЛЯ НЕДЕЛЬ ============ */
+function weekStats(mondayDate){
+  const data = load();
+  let trained = 0, sum = 0, cnt = 0, green = 0;
+  for (let i=0;i<7;i++){
+    const d = new Date(mondayDate);
+    d.setDate(mondayDate.getDate()+i);
+    const k = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')
+              +'-'+String(d.getDate()).padStart(2,'0');
+    const r = data[k];
+    if (!r) continue;
+    if (r.trained) trained++;
+    sum += r.stiffness; cnt++;
+    if (r.stiffness <= 3) green++;
+  }
+  return {
+    trained,
+    avg: cnt ? sum/cnt : null,
+    green,
+    days: cnt
+  };
+}
+
+/* ============ ДЕЛЬТА ============ */
+function renderDelta(){
+  const thisMon = mondayOf(new Date());
+  const prevMon = new Date(thisMon); prevMon.setDate(thisMon.getDate()-7);
+  const cur  = weekStats(thisMon);
+  const prev = weekStats(prevMon);
+  const body = document.getElementById('delta-body');
+  const verdict = document.getElementById('delta-verdict');
+
+  if (cur.days === 0 && prev.days === 0){
+    body.innerHTML = '<p style="margin:0;color:#6b7280">Пока не с чем сравнивать — нужны записи за две недели.</p>';
+    verdict.className = 'delta-verdict empty';
+    verdict.textContent = 'Дневник только начался';
+    return;
+  }
+
+  const fmt = v => v === null ? '—' : v.toFixed(1);
+  const diffVal = (a,b) => (a===null||b===null) ? null : (a-b);
+
+  // Жёсткость: снижение = хорошо
+  const dAvg = diffVal(cur.avg, prev.avg);
+  // Тренировки: рост = хорошо
+  const dTr  = cur.trained - prev.trained;
+
+  function arrow(v){ return v === null ? '' : (v > 0 ? '▲' : v < 0 ? '▼' : '='); }
+  function avgClass(v){ if (v===null||v===0) return 'neutral';
+    return v < 0 ? 'good' : 'bad'; }        // жёсткость ниже = хорошо
+  function trClass(v){ if (v===0) return 'neutral';
+    return v > 0 ? 'good' : 'neutral'; }    // пропуск — не провал
+
+  body.innerHTML = `
+    <div class="delta-row">
+      <span>Ср. жёсткость</span>
+      <span>
+        <span class="now">${fmt(cur.avg)}</span>
+        <span class="diff ${avgClass(dAvg)}">${arrow(dAvg)} ${dAvg===null?'':'('+(dAvg>0?'+':'')+dAvg.toFixed(1)+')'}</span>
+      </span>
+    </div>
+    <div class="delta-row">
+      <span>Тренировок</span>
+      <span>
+        <span class="now">${cur.trained}</span>
+        <span class="diff ${trClass(dTr)}">${arrow(dTr)} ${dTr===0?'':'('+(dTr>0?'+':'')+dTr+')'}</span>
+      </span>
+    </div>
+    <div class="delta-row">
+      <span>Зелёных утр</span>
+      <span>
+        <span class="now">${cur.green}</span>
+        <span class="diff neutral">${cur.green - prev.green === 0 ? '=' : (cur.green>prev.green?'▲ (+':'▼ (') + (cur.green-prev.green) + ')'}</span>
+      </span>
+    </div>
+  `;
+
+  // Вердикт: главное — жёсткость, тренировки вторичны
+  if (dAvg === null){
+    verdict.className = 'delta-verdict same';
+    verdict.textContent = 'На этой неделе ещё нет записей';
+  } else if (dAvg <= -0.5){
+    verdict.className = 'delta-verdict better';
+    verdict.textContent = 'Лучше, чем на прошлой неделе';
+  } else if (dAvg >= 0.5){
+    verdict.className = 'delta-verdict worse';
+    verdict.textContent = 'Хуже, чем на прошлой неделе';
+  } else {
+    verdict.className = 'delta-verdict same';
+    verdict.textContent = 'Без изменений — это нормально';
+  }
+}
+
+/* ============ ГРАФИК 4 НЕДЕЛИ ============ */
+function renderChart(){
+  const canvas = document.getElementById('chart');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const padL = 28, padR = 8, padT = 10, padB = 20;
+  ctx.clearRect(0,0,W,H);
+
+  // Собираем 28 точек
+  const data = load();
+  const start = mondayOf(new Date());
+  start.setDate(start.getDate() - 21); // 4 недели назад, понедельник
+  const points = [];
+  for (let i=0;i<28;i++){
+    const d = new Date(start); d.setDate(start.getDate()+i);
+    const k = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')
+              +'-'+String(d.getDate()).padStart(2,'0');
+    points.push({ d, rec: data[k] || null });
+  }
+
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+  const x = i => padL + (i + 0.5) * (plotW / 28);
+  const y = v => padT + plotH - (v / 10) * plotH;
+
+  // Зоны (0–3 зелёная, 7–10 красная)
+  ctx.fillStyle = 'rgba(22,163,74,.08)';
+  ctx.fillRect(padL, y(3), plotW, y(0)-y(3));
+  ctx.fillStyle = 'rgba(220,38,38,.08)';
+  ctx.fillRect(padL, y(10), plotW, y(7)-y(10));
+
+  // Сетка по Y
+  ctx.strokeStyle = '#eef0f3'; ctx.lineWidth = 1;
+  for (let v=0; v<=10; v+=2){
+    ctx.beginPath(); ctx.moveTo(padL, y(v)); ctx.lineTo(W-padR, y(v)); ctx.stroke();
+    ctx.fillStyle = '#9ca3af'; ctx.font = '10px sans-serif';
+    ctx.textAlign = 'right'; ctx.fillText(v, padL-4, y(v)+3);
+  }
+
+  // Разделители недель
+  ctx.strokeStyle = '#dfe3e8';
+  for (let w=0; w<=4; w++){
+    const px = padL + w * (plotW/4);
+    ctx.beginPath(); ctx.moveTo(px, padT); ctx.lineTo(px, padT+plotH); ctx.stroke();
+  }
+
+  // Точки и линия
+  let prevPt = null;
+  points.forEach((p, i) => {
+    if (!p.rec) return;
+    const px = x(i), py = y(p.rec.stiffness);
+    const c = p.rec.stiffness <= 3 ? '#16a34a'
+            : p.rec.stiffness <= 6 ? '#eab308' : '#dc2626';
+    if (prevPt && i - prevPt.i <= 2){ // соединяем, если нет длинных разрывов
+      ctx.strokeStyle = 'rgba(37,99,235,.35)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(prevPt.px, prevPt.py); ctx.lineTo(px, py); ctx.stroke();
+    }
+    ctx.fillStyle = c;
+    ctx.beginPath(); ctx.arc(px, py, 3.5, 0, Math.PI*2); ctx.fill();
+    prevPt = { i, px, py };
+  });
+
+  // Подписи недель
+  ctx.fillStyle = '#9ca3af'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+  for (let w=0; w<4; w++){
+    const cx = padL + (w + 0.5) * (plotW/4);
+    const label = w === 3 ? 'эта нед.' : '−' + (3-w) + ' нед.';
+    ctx.fillText(label, cx, H-4);
+  }
+}
+
+/* ============ МИНИ-КАЛЕНДАРЬ 28 ДНЕЙ ============ */
+function renderMiniCal(){
+  const data = load();
+  const today = new Date();
+  const start = new Date(today); start.setDate(today.getDate()-27);
+  const box = document.getElementById('mini-cal');
+  box.innerHTML = '';
+  for (let i=0;i<28;i++){
+    const d = new Date(start); d.setDate(start.getDate()+i);
+    const k = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')
+              +'-'+String(d.getDate()).padStart(2,'0');
+    const r = data[k];
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.title = fmtDate(d) + (r ? ` · жёсткость ${r.stiffness}` : ' · нет записи');
+    if (!r) cell.style.background = '#e5e7eb';
+    else if (r.stiffness <= 3) cell.style.background = '#16a34a';
+    else if (r.stiffness <= 6) cell.style.background = '#eab308';
+    else cell.style.background = '#dc2626';
+    // сегодня — обводка
+    if (i === 27) cell.style.outline = '2px solid #2563eb';
+    box.appendChild(cell);
+  }
+}
+
+/* ============ ПЕРЕРИСОВКА ============ */
+const _oldRenderWeek = renderWeek;
+renderWeek = function(){
+  _oldRenderWeek();
+  renderDelta();
+  renderChart();
+  renderMiniCal();
+};
+  
 /* ============ СТАРТ ============ */
 renderToday();
 renderWeek();
