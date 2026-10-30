@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f2937">
+<title>Дневник спины</title>
+<link rel="manifest" href="manifest.json">
+<style>
+  :root{
+    --bg:#f5f6f8; --card:#fff; --ink:#1f2937; --muted:#6b7280;
+    --green:#16a34a; --yellow:#eab308; --red:#dc2626; --blue:#2563eb;
+    --space:16px; --radius:14px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    font-size:17px;line-height:1.45}
+  main{max-width:520px;margin:0 auto;padding:var(--space);padding-bottom:80px}
+  h1{font-size:22px;margin:8px 0 4px}
+  h2{font-size:18px;margin:0 0 12px}
+  .sub{color:var(--muted);font-size:14px;margin:0 0 20px}
+  .card{background:var(--card);border-radius:var(--radius);padding:18px;
+    margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+  .label{font-size:13px;text-transform:uppercase;letter-spacing:.04em;
+    color:var(--muted);margin-bottom:8px}
+  .row{display:flex;gap:10px}
+  .row > *{flex:1}
+
+  /* Кнопки да/нет */
+  .yn{display:flex;gap:10px;margin-top:4px}
+  .yn button{flex:1;padding:16px;font-size:18px;font-weight:600;border-radius:12px;
+    border:2px solid #e5e7eb;background:#fff;color:var(--ink);cursor:pointer}
+  .yn button.on{background:var(--blue);border-color:var(--blue);color:#fff}
+
+  /* Ползунок 0..10 */
+  .slider-wrap{margin-top:6px}
+  .slider-val{font-size:32px;font-weight:700;text-align:center;margin:6px 0}
+  .slider-hint{display:flex;justify-content:space-between;font-size:12px;
+    color:var(--muted);margin-top:4px}
+  input[type=range]{width:100%;height:36px;accent-color:var(--blue)}
+
+  .save{width:100%;padding:18px;font-size:18px;font-weight:700;border:none;
+    border-radius:14px;background:var(--green);color:#fff;cursor:pointer;margin-top:6px}
+  .save:disabled{background:#9ca3af}
+
+  /* Неделя */
+  .week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:10px}
+  .day{aspect-ratio:1;border-radius:10px;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;font-size:12px;color:#fff;
+    font-weight:700;position:relative}
+  .day small{font-weight:400;opacity:.85;font-size:10px}
+  .day.empty{background:#e5e7eb;color:#9ca3af;font-weight:400}
+  .day.green{background:var(--green)}
+  .day.yellow{background:var(--yellow)}
+  .day.red{background:var(--red)}
+  .day.skip{background:#9ca3af}
+  .dow{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;
+    font-size:11px;color:var(--muted);text-align:center;margin-top:6px}
+
+  .summary{display:flex;gap:10px;margin-top:14px}
+  .stat{flex:1;background:#f9fafb;border-radius:10px;padding:10px;text-align:center}
+  .stat b{display:block;font-size:20px}
+  .stat span{font-size:12px;color:var(--muted)}
+
+  .rule{background:#eff6ff;border-left:4px solid var(--blue);
+    padding:12px 14px;border-radius:8px;font-size:14px;margin-top:12px}
+  .warn{background:#fff7ed;border-left:4px solid var(--yellow);
+    padding:12px 14px;border-radius:8px;font-size:14px;margin-top:12px}
+
+  .tabs{position:fixed;bottom:0;left:0;right:0;background:#fff;
+    border-top:1px solid #e5e7eb;display:flex;padding-bottom:env(safe-area-inset-bottom)}
+  .tabs button{flex:1;padding:12px;border:none;background:none;font-size:13px;
+    color:var(--muted);cursor:pointer}
+  .tabs button.active{color:var(--blue);font-weight:700}
+
+  .hidden{display:none !important}
+  .history-item{display:flex;justify-content:space-between;padding:10px 0;
+    border-bottom:1px solid #f0f0f0;font-size:14px}
+  .history-item:last-child{border-bottom:none}
+  .history-item .dot{width:12px;height:12px;border-radius:50%;display:inline-block;
+    margin-right:8px;vertical-align:middle}
+</style>
+</head>
+<body>
+<main>
+
+  <!-- ================= ЗАПИСЬ ================= -->
+  <section id="view-entry">
+    <h1>Утренняя запись</h1>
+    <p class="sub" id="today-label"></p>
+
+    <div class="card">
+      <div class="label">Вчера занимался?</div>
+      <div class="yn" id="yn">
+        <button data-v="yes">Да</button>
+        <button data-v="no">Нет</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="label">Жёсткость спины утром</div>
+      <div class="slider-wrap">
+        <div class="slider-val" id="slider-val">0</div>
+        <input type="range" id="slider" min="0" max="10" step="1" value="0">
+        <div class="slider-hint"><span>0 — разогнулся легко</span><span>10 — еле встал</span></div>
+      </div>
+    </div>
+
+    <button class="save" id="save" disabled>Сохранить запись</button>
+    <div id="saved-msg" class="rule hidden">Запись сохранена. Хорошего дня.</div>
+  </section>
+
+  <!-- ================= НЕДЕЛЯ ================= -->
+  <section id="view-week" class="hidden">
+    <h1>Эта неделя</h1>
+    <p class="sub">Смотрим на всю неделю целиком, сравниваем с прошлой.</p>
+
+    <div class="card">
+      <div class="dow" id="dow"></div>
+      <div class="week" id="week"></div>
+
+      <div class="summary">
+        <div class="stat"><b id="st-train">0</b><span>тренировок</span></div>
+        <div class="stat"><b id="st-avg">—</b><span>ср. жёсткость</span></div>
+        <div class="stat"><b id="st-green">0</b><span>зелёных утр</span></div>
+      </div>
+    </div>
+
+    <div class="rule">
+      <b>Правило чтения:</b> день ото дня цифра скачет и не значит ничего.
+      Сравнивайте неделю целиком с предыдущей. Через 4 недели — тесты «после».
+    </div>
+
+    <div class="warn">
+      <b>Если дневник стал источником тревоги</b> — переходите на одну запись в неделю.
+      Дневник нужен, чтобы управлять нагрузкой, а не проверять себя.
+    </div>
+  </section>
+
+  <!-- ================= ВОЗВРАТ ================= -->
+  <section id="view-return" class="hidden">
+    <h1>После пропуска</h1>
+    <p class="sub">Сценарии написаны заранее, чтобы не решать в трудный момент.</p>
+
+    <div class="card">
+      <h2>Пропуск до недели</h2>
+      <p style="margin:0">Возвращаемся на ту же неделю программы, ничего не пересчитываем.</p>
+    </div>
+    <div class="card">
+      <h2>Пропуск от недели до месяца</h2>
+      <p style="margin:0">Возвращаемся на одну неделю программы назад и идём по светофору.</p>
+    </div>
+    <div class="card">
+      <h2>Пропуск больше месяца</h2>
+      <p style="margin:0">Начинаем с тестов и первой недели. Это не потерянное время: во второй раз те же недели даются легче.</p>
+    </div>
+    <div class="card">
+      <h2>Плохая неделя без пропуска</h2>
+      <p style="margin:0">Держим тот же объём и ничего не добавляем, пока утро снова не станет зелёным.</p>
+    </div>
+  </section>
+
+  <!-- ================= ИСТОРИЯ ================= -->
+  <section id="view-history" class="hidden">
+    <h1>История</h1>
+    <p class="sub">Все записи. Свежие сверху.</p>
+    <div class="card" id="history-list"></div>
+  </section>
+
+</main>
+
+<!-- ================= НИЖНИЕ ВКЛАДКИ ================= -->
+<nav class="tabs">
+  <button data-tab="entry" class="active">Запись</button>
+  <button data-tab="week">Неделя</button>
+  <button data-tab="return">Возврат</button>
+  <button data-tab="history">История</button>
+</nav>
+
+<script>
+/* ============ ХРАНИЛИЩЕ ============ */
+const KEY = 'back-diary-v1';
+function load(){ try{ return JSON.parse(localStorage.getItem(KEY)) || {}; }catch(e){ return {}; } }
+function saveAll(d){ localStorage.setItem(KEY, JSON.stringify(d)); }
+
+/* ============ ДАТА ============ */
+const DOW = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+function todayKey(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function mondayOf(date){
+  const d = new Date(date);
+  const day = (d.getDay() + 6) % 7; // 0 = Пн
+  d.setDate(d.getDate() - day);
+  return d;
+}
+function fmtDate(d){
+  return String(d.getDate()).padStart(2,'0') + '.' +
+         String(d.getMonth()+1).padStart(2,'0') + '.' + d.getFullYear();
+}
+
+/* ============ ЦВЕТ ПО ЖЁСТКОСТИ ============ */
+function colorFor(v){
+  if (v === null || v === undefined) return 'empty';
+  if (v <= 3) return 'green';
+  if (v <= 6) return 'yellow';
+  return 'red';
+}
+
+/* ============ ВКЛАДКИ ============ */
+const views = {
+  entry: document.getElementById('view-entry'),
+  week: document.getElementById('view-week'),
+  return: document.getElementById('view-return'),
+  history: document.getElementById('view-history'),
+};
+document.querySelectorAll('.tabs button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const tab = btn.dataset.tab;
+    Object.entries(views).forEach(([k,el])=>el.classList.toggle('hidden', k!==tab));
+    document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active', b===btn));
+    if (tab === 'week') renderWeek();
+    if (tab === 'history') renderHistory();
+    window.scrollTo(0,0);
+  });
+});
+
+/* ============ ЭКРАН ЗАПИСИ ============ */
+const ynBox = document.getElementById('yn');
+const slider = document.getElementById('slider');
+const sliderVal = document.getElementById('slider-val');
+const saveBtn = document.getElementById('save');
+const savedMsg = document.getElementById('saved-msg');
+const todayLabel = document.getElementById('today-label');
+
+let draft = { trained: null, stiffness: 0 };
+
+function renderToday(){
+  const data = load();
+  const key = todayKey();
+  const d = new Date();
+  todayLabel.textContent = DOW[(d.getDay()+6)%7] + ', ' + fmtDate(d);
+
+  // Предзаполняем черновик из уже сохранённой записи
+  if (data[key]){
+    draft = { trained: data[key].trained, stiffness: data[key].stiffness };
+  } else {
+    draft = { trained: null, stiffness: 0 };
+  }
+
+  ynBox.querySelectorAll('button').forEach(b=>{
+    const v = b.dataset.v;
+    const on = (v === 'yes' && draft.trained === true) ||
+               (v === 'no'  && draft.trained === false);
+    b.classList.toggle('on', on);
+  });
+  slider.value = draft.stiffness;
+  sliderVal.textContent = draft.stiffness;
+  updateSaveState();
+  savedMsg.classList.toggle('hidden', !data[key]);
+}
+
+ynBox.querySelectorAll('button').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    draft.trained = (b.dataset.v === 'yes');
+    ynBox.querySelectorAll('button').forEach(x=>x.classList.toggle('on', x===b));
+    updateSaveState();
+  });
+});
+
+slider.addEventListener('input', ()=>{
+  draft.stiffness = Number(slider.value);
+  sliderVal.textContent = draft.stiffness;
+});
+
+function updateSaveState(){
+  saveBtn.disabled = (draft.trained === null);
+  saveBtn.textContent = draft.trained === null
+    ? 'Сначала ответьте: занимался вчера?'
+    : 'Сохранить запись';
+}
+
+saveBtn.addEventListener('click', ()=>{
+  if (draft.trained === null) return;
+  const data = load();
+  data[todayKey()] = {
+    trained: draft.trained,
+    stiffness: draft.stiffness,
+    ts: Date.now()
+  };
+  saveAll(data);
+  savedMsg.classList.remove('hidden');
+  saveBtn.textContent = 'Обновить запись';
+});
+
+/* ============ ЭКРАН НЕДЕЛИ ============ */
+const weekBox = document.getElementById('week');
+const dowBox  = document.getElementById('dow');
+
+function renderWeek(){
+  const data = load();
+  const monday = mondayOf(new Date());
+  const dates = [];
+  for (let i=0;i<7;i++){
+    const d = new Date(monday);
+    d.setDate(monday.getDate()+i);
+    dates.push(d);
+  }
+
+  dowBox.innerHTML = DOW.map(x=>`<div>${x}</div>`).join('');
+  weekBox.innerHTML = '';
+  let trainedCount = 0, greenCount = 0, sum = 0, cnt = 0;
+
+  dates.forEach(d=>{
+    const key = d.toISOString().slice(0,10) === undefined ? null : null; // placeholder
+    const k = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    const rec = data[k];
+    const el = document.createElement('div');
+    el.className = 'day';
+
+    if (!rec){
+      el.classList.add('empty');
+      el.innerHTML = `<span>${d.getDate()}</span>`;
+    } else {
+      el.classList.add(colorFor(rec.stiffness));
+      const mark = rec.trained ? '✓' : '—';
+      el.innerHTML = `<small>${mark}</small><span>${rec.stiffness}</span>`;
+      if (rec.trained) trainedCount++;
+      if (rec.stiffness <= 3) greenCount++;
+      sum += rec.stiffness; cnt++;
+    }
+    weekBox.appendChild(el);
+  });
+
+  document.getElementById('st-train').textContent = trainedCount;
+  document.getElementById('st-avg').textContent = cnt ? (sum/cnt).toFixed(1) : '—';
+  document.getElementById('st-green').textContent = greenCount;
+}
+
+/* ============ ЭКРАН ИСТОРИИ ============ */
+function renderHistory(){
+  const data = load();
+  const list = document.getElementById('history-list');
+  const keys = Object.keys(data).sort().reverse();
+  if (!keys.length){
+    list.innerHTML = '<p style="color:#6b7280;margin:0">Записей пока нет.</p>';
+    return;
+  }
+  list.innerHTML = keys.map(k=>{
+    const r = data[k];
+    const [y,m,d] = k.split('-');
+    const color = { green:'#16a34a', yellow:'#eab308', red:'#dc2626', empty:'#9ca3af' }[colorFor(r.stiffness)];
+    const trainTxt = r.trained ? 'тренировка была' : 'без тренировки';
+    return `<div class="history-item">
+      <span><span class="dot" style="background:${color}"></span>${d}.${m}.${y}</span>
+      <span>${trainTxt} · жёсткость ${r.stiffness}</span>
+    </div>`;
+  }).join('');
+}
+
+/* ============ СТАРТ ============ */
+renderToday();
+renderWeek();
+</script>
+
+<!-- Регистрация service worker для офлайна (см. ниже) -->
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+</script>
+</body>
+</html>
