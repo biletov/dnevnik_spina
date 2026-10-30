@@ -113,30 +113,61 @@
 
   <!-- ================= НЕДЕЛЯ ================= -->
   <section id="view-week" class="hidden">
-    <h1>Эта неделя</h1>
-    <p class="sub">Смотрим на всю неделю целиком, сравниваем с прошлой.</p>
+  <h1>Эта неделя</h1>
+  <p class="sub">Смотрим на всю неделю целиком, сравниваем с прошлой.</p>
 
-    <div class="card">
-      <div class="dow" id="dow"></div>
-      <div class="week" id="week"></div>
+  <!-- Сетка текущей недели -->
+  <div class="card">
+    <div class="dow" id="dow"></div>
+    <div class="week" id="week"></div>
 
-      <div class="summary">
-        <div class="stat"><b id="st-train">0</b><span>тренировок</span></div>
-        <div class="stat"><b id="st-avg">—</b><span>ср. жёсткость</span></div>
-        <div class="stat"><b id="st-green">0</b><span>зелёных утр</span></div>
-      </div>
+    <div class="summary">
+      <div class="stat"><b id="st-train">0</b><span>тренировок</span></div>
+      <div class="stat"><b id="st-avg">—</b><span>ср. жёсткость</span></div>
+      <div class="stat"><b id="st-green">0</b><span>зелёных утр</span></div>
     </div>
+  </div>
 
-    <div class="rule">
-      <b>Правило чтения:</b> день ото дня цифра скачет и не значит ничего.
-      Сравнивайте неделю целиком с предыдущей. Через 4 недели — тесты «после».
-    </div>
+  <!-- ДЕЛЬТА с предыдущей неделей -->
+  <div class="card" id="delta-card">
+    <div class="label">По сравнению с прошлой неделей</div>
+    <div id="delta-body"></div>
+    <div class="delta-verdict" id="delta-verdict"></div>
+  </div>
 
-    <div class="warn">
-      <b>Если дневник стал источником тревоги</b> — переходите на одну запись в неделю.
-      Дневник нужен, чтобы управлять нагрузкой, а не проверять себя.
+  <!-- ГРАФИК 4 недели -->
+  <div class="card">
+    <div class="label">Жёсткость спины · 4 недели</div>
+    <canvas id="chart" width="480" height="200"
+            style="width:100%;height:auto;display:block"></canvas>
+    <div class="chart-legend">
+      <span><i style="background:#16a34a"></i>зелёная зона (0–3)</span>
+      <span><i style="background:#dc2626"></i>красная зона (7–10)</span>
     </div>
-  </section>
+  </div>
+
+  <!-- МИНИ-КАЛЕНДАРЬ: 28 точек -->
+  <div class="card">
+    <div class="label">Последние 28 дней</div>
+    <div class="mini-cal" id="mini-cal"></div>
+    <div class="mini-cal-legend">
+      <span><i style="background:#16a34a"></i>0–3</span>
+      <span><i style="background:#eab308"></i>4–6</span>
+      <span><i style="background:#dc2626"></i>7–10</span>
+      <span><i style="background:#e5e7eb"></i>нет записи</span>
+    </div>
+  </div>
+
+  <div class="rule">
+    <b>Правило чтения:</b> день ото дня цифра скачет и не значит ничего.
+    Сравнивайте неделю целиком с предыдущей. Через 4 недели — тесты «после».
+  </div>
+
+  <div class="warn">
+    <b>Если дневник стал источником тревоги</b> — переходите на одну запись в неделю.
+    Дневник нужен, чтобы управлять нагрузкой, а не проверять себя.
+  </div>
+</section>
 
   <!-- ================= ВОЗВРАТ ================= -->
   <section id="view-return" class="hidden">
